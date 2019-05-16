@@ -173,3 +173,4 @@ else
 
 ![元素尺寸](D:/%E6%96%87%E4%BB%B6/%E5%89%8D%E7%AB%AF/%E7%AC%94%E8%AE%B0/js%E9%9D%A2%E8%AF%95%E9%A2%98/img/element-size.png)
 
+伪类：before，after
