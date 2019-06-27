@@ -608,7 +608,7 @@ myObject.hasOwnProperty( "b" ); // false
 可枚举，相当于可以出现在对象属性的遍历中。 **propertyIsEnumerable**会检查给定的属性名是否直接存在于对象中(而不是原型链中)，并且满足enumerable: true。
 
 ```JavaScript
-var myObject = { }; 
+var myObject = { };  
 
 Object.defineProperty(     
     myObject,     "a",    
@@ -788,7 +788,6 @@ function mixinWithoutOverwrite(source, target) {
             target[key] = source[key];
         }
     }
-
     return target;
 }
 
@@ -853,7 +852,7 @@ var robinHood = {
     },
 }
 
-robinHood.rob();
+robinHood.rob(); //Landlord is giving money to Robin Hood
 ```
 
 ## 第五章 原型
@@ -880,7 +879,7 @@ myObj.a; //2
 
 #### 5.1.1 Object.prototype
 
-**一般原型链都会最终指向Object.prototype**，而**Object.prototype的__proto__为null**。
+**一般原型链都会最终指向Object.prototype**，而**Object.prototype的`__proto__`为null**。
 
 #### 5.1.2 属性设置和屏蔽
 
@@ -928,7 +927,7 @@ myObject.hasOwnProperty( "a" ); // true
 
 prototype默认有一个公有且不可枚举的属性constructor，这个属性引用的是对象关联的函数。
 
-```
+```javascript
 function foo() {
     // ...
 }
@@ -940,6 +939,194 @@ a.constructor === foo; // true
 
 需要注意的是，构造函数本身还是函数，new操作符只是将其调用方式变成“构造函数调用”，本质上还是需要去执行它。
 
+在 JavaScript 中对于“构造函数”最准确的解释是，所有带 new 的函数调用。
+
 #### 5.2.3 技术
 
-prototype中的constructor引用是非常不可靠，且不安全的。
+prototype中的constructor引用是非常不可靠，且不安全的，要避免使用。.constructor 并不是一个不可变属性。它是不可枚举的，但是它的值 是可写的（可以被修改）。
+
+实例对象 并没有 .constructor 属性，所以它会委托`__proto__`链上的 Foo. prototype。
+
+实际上，Foo 和你程序中的其他函数没有任何区别。**函数本身并不是构造函数**，然而，当 你在普通的函数调用前面**加上 new 关键字之后，就会把这个函数调用变成一个“构造函数 调用”**。
+
+new 会劫持所有普通函数并用构造对象的形式来调用它。
+
+#### 5.3 （原型）继承
+
+要创建一个合适的关联对象，我们必须使用 **Object.create(..)** 而不是使用具有副 作用的 Foo(..)。会创建一个新对象，再赋予当前对象
+
+> **bar = Object.create( foo );** 中
+>
+> Object.create(..)，会创建一个新对象给bar，但是此时bar中并没有内容，还是指向的foo，可以引用foo中的属性；当foo中参数被修改时，bar的引用也会被修改；
+>
+> 但是当bar重写属性时，在当前实例中创建这个属性，重写的值不会改变foo的值！！！此后foo再次改变此属性不会再影响bar的属性值
+
+ES6 添加了辅助函数 **Object.setPrototypeOf(..)**，可以用标准并且可靠的方法来修 改关联。
+
+```javascript
+// ES6 之前需要抛弃默认的 
+Bar.prototype Bar.ptototype = Object.create( Foo.prototype ); 
+ 
+// ES6 开始可以直接修改现有的
+Bar.prototype Object.setPrototypeOf( Bar.prototype, Foo.prototype )
+```
+
+a instanceof Foo; // true
+**instanceof** 操作符的左操作数是一个普通的对象，右操作数是一个函数。**instanceof 回答 的问题是：**在 a 的整条 [[Prototype]] 链中是否有指向 Foo.prototype 的对象？
+
+反过来操作就是：Foo.prototype.isPrototypeOf(a)：foo是否出现在a的原型链中
+
+```javascript
+//ES5
+function Super(){
+    this.name = 'father';
+}
+Super.prototype.say = function() {
+    console.log('I am ' + this.name);
+};
+
+function Sub(){
+    // 执行父类构造函数，获得属性
+    Super();
+    // 添加或覆盖属性
+    this.name = 'son';
+}
+// 形成原型链
+Sub.prototype = Object.create(Super.prototype);
+// 修复constructor指向
+Sub.prototype.constructor = Sub;
+
+// 或者更直接的原型链
+Sub.prototype.__proto__ = Super.prototype;
+//ES6提供一种新的操作方式
+Object.setPrototypeOf(Sub.prototype, Super.prototype);
+
+
+// ES6
+class A {
+    constructor(){
+        this.name = 'father'
+    }
+    say() {
+        console.log('Method from father: I am ' + this.name);
+    }
+}
+class B extends A {
+    constructor(){
+        super();
+        this.name = 'son'
+    }
+    say() {
+        console.log(`Method from son: I am ${this.name}.`);
+        super.say();
+    }
+}
+```
+
+另一个需要注意的是非标准的__proto__，它其实是一套getter/setter。
+
+```javascript
+Object.defineProperty(Object.prototype, "__proto__", {
+    get: function() {
+        return Object.getPrototypeOf(this);
+    },
+    set: function(o) {
+        Object.setPrototypeOf(this, o);
+        return o;
+    },
+});
+```
+
+### 5.4 对象关联
+
+#### 5.4.1 创建关联
+
+```javascript
+//Object.create()的polyfill
+if(!Object.create){
+    Object.create = function(o) {
+        function F(){}
+        F.prototype = o;
+        return new F();
+    };
+}
+```
+
+#### 5.4.2 关联关系是备用？
+
+原型的实现应当遵循委托设计模式，API在原型链上出现的位置要参考现实中的情况。
+
+## 第六章 行为委托
+
+### 6.1 面向委托的设计
+
+#### 6.1.1 类理论
+
+类设计模式鼓励你在继承时使用方法重写和多态。许多行为可以先抽象到父类，然后再用子类进行特殊化。
+
+#### 6.1.2 委托理论
+
+首先定义对象，而不是类。通过Object.create()来创建委托对象，赋值给另一个对象，从而让该对象出现在另一个对象的原型链上。 比如`var bar = Object.create(foo);`，使得`bar.__proto__===foo`，从而bar可以通过原型链获得foo的所有属性和方法。 这种设计模式被称为对象关联。委托行为意味着某些对象在找不到属性或者方法引用时，会把这个请求委托给另一个对象。 
+
+需要注意的是，**禁止两个对象互相委托**，否则当引用一个两者都不存在的属性或方法，会产生无限递归的循环。
+
+```JavaScript
+function Foo() {} 
+var a1 = new Foo(); 
+a1; // Foo {} （chrome中） ； Object {} （Firefox中）
+//“{} 是一个空对象，由名为 Foo 的函数构造” ,因为 Chrome 会动态跟踪并把 实际执行构造过程的函数名当作一个内置属性，但是其他浏览器并不会跟踪这些额外的信息
+```
+
+#### 6.1.3 比较思维模型
+
+对象关联风格相对于类风格更为简洁，因为它只关注对象之间的关联关系。
+
+```JavaScript
+Foo = {
+    init: function(who) {
+        this.me = who;
+    },
+    identify: function() {
+        return 'I am ' + this.me;
+    },
+}
+Bar = Object.create(Foo);
+Bar.speak = function() {
+    console.log('Hello, ' + this.identify() + '.');
+};
+
+var b1 = Object.create(Bar);
+var b2 = Object.create(Bar);
+// 从b1.__proto__.__proto__上得到init方法
+b1.init('b1');
+b2.init('b2');
+
+// 从b1.__proto__上得到Bar的spaak方法
+// 从b1.__proto__.__proto__上得到identify方法
+b1.speak(); // Hello, b1.
+b2.speak(); // Hello, b2.
+```
+
+#### 6.2.2 委托控件对象
+
+委托模式可以防止上一节中不太合理的伪多态形式调用`Widget.prototype.render.call(this, $where);`。 同时init和setup两个初始化函数更具语义表达能力，同时由于将构建和初始化分开，使得初始化的时机变得更灵活，允许异步调用。 对象关联可以更好地支持**关注分离原则，创建和初始化不需要合并为一个步骤**。
+
+### 6.3 更简洁的设计
+
+对象关联除了能让代码看起来更简洁，更具扩展性，还可以通过委托模式简化代码结构。
+
+### 6.4 更好的语法
+
+ES6中使用`Object.setPrototypeOf(target, obj)`的方式来简化`target = Object.create(obj)`的写法。
+
+### 6.5 内省
+
+内省就是检查实例的类型。 `instanceof`实际上检查的是目标对象与构造器原型的关系，对于通过委托互相关联的对象（Foo与Bar互相关联），可以使用：
+
+- `Foo.isPrototypeOf(Bar)`
+- `Object.getPrototypeOf(Bar) === Foo`
+
+
+
+
+
